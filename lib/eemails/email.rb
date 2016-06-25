@@ -36,6 +36,7 @@ class Eemails::Email
   
   def subject
     mail.subject
+
   end
 
   def date
@@ -48,7 +49,7 @@ class Eemails::Email
     if mail.multipart?
       mail.parts.map { |part| Nokogiri::HTML(part.body.decoded).text }.join("\n\n")
     else
-      mail.body.decoded
+      Nokogiri::HTML(mail.body.decoded).text
     end
   end
 
@@ -56,10 +57,9 @@ class Eemails::Email
     @mail ||= Mail.new(@mail_string)
   end
 
-  # FIXME body is not indexed for now since some emails have utf8 issues and it's a lot of data
   def to_indexable_hash
     %i(sender message_id subject date).inject({}) do |hash, field|
-      hash[field] = send(field)
+      hash[field] = send(field) rescue nil
       hash
     end
   end

@@ -1,4 +1,5 @@
 require 'elasticsearch'
+require 'pathname'
 # require 'elasticsearch/extensions/ansi'
 
 class Eemails::Runner
@@ -6,21 +7,33 @@ class Eemails::Runner
   ES_LOGGING      = false
   ES_TYPE         = 'email'
 
-  def run
-    puts "=" * 80
-    index_files(Dir.glob('emails/**/*.emlx'))
+  def index_path(path)
+    path = Pathname.new(path).join('**/*.emlx')
+    file_paths = Dir.glob(path)
+    puts "Indexing #{file_paths.count} files from ... #{path}"
+    start_time = Time.now
+    index_files(file_paths)
     es.indices.refresh(index: ES_INDEX_NAME)
+    puts "Took #{Time.now - start_time}s"
+  end
+
+  def run_search
     print_num_documents
-    # result = search(match: { subject: 'Ruby' })
+
+    result = search(match: { subject: 'Ruby' })
+    result_info(result, "subject: Ruby")
+    
     result = search(
       "range": {
         "date": {
-          "gte": "2016-10-01",
+          "gte": "2016-01-01",
         }
       }
     )
-    result_info(result)
+    result_info(result, "gte 2016-01-01")
   end
+
+  private
 
   def index_files(files)
     files.each do |file| 
@@ -44,7 +57,7 @@ class Eemails::Runner
     @elasticsearch_client ||= Elasticsearch::Client.new(trace: ES_LOGGING)
   end
 
-  def result_info(result, label: 'Query')
+  def result_info(result, label = 'Query')
     puts "#{label} returned #{result['hits']['total']} results."
     puts "First results:" if result['hits']['total'] > 0
     result['hits']['hits'].take(5).each do |row|

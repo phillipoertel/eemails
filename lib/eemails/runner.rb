@@ -10,9 +10,16 @@ class Eemails::Runner
     puts "=" * 80
     index_files(Dir.glob('emails/**/*.emlx'))
     es.indices.refresh(index: ES_INDEX_NAME)
-    count = query(match_all: {})['hits']['total']
-    puts "Index #{ES_INDEX_NAME} now has #{count} documents."
-    p query(match: { subject: 'Ruby' })
+    print_num_documents
+    # result = search(match: { subject: 'Ruby' })
+    result = search(
+      "range": {
+        "date": {
+          "gte": "2016-10-01",
+        }
+      }
+    )
+    result_info(result)
   end
 
   def index_files(files)
@@ -29,12 +36,25 @@ class Eemails::Runner
     # puts "Failed to index #{document[:subject]}"
   end
 
-  def query(query)
+  def search(query)
     es.search(index: ES_INDEX_NAME, body: { query: query })
   end
 
   def es
     @elasticsearch_client ||= Elasticsearch::Client.new(trace: ES_LOGGING)
+  end
+
+  def result_info(result, label: 'Query')
+    puts "#{label} returned #{result['hits']['total']} results."
+    puts "First results:" if result['hits']['total'] > 0
+    result['hits']['hits'].take(5).each do |row|
+      p row["_source"]
+    end
+  end
+
+  def print_num_documents
+    count = search(match_all: {})['hits']['total']
+    puts "Index #{ES_INDEX_NAME} now has #{count} documents."
   end
 
 end
